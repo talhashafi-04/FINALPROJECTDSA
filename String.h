@@ -2,12 +2,13 @@
 #include <iostream>
 
 class String {
-private:
-    char* data;
-    size_t length;
+public:
 
-    size_t calculateLength(const char* str) const {
-        size_t len = 0;
+    char* data;
+    long long unsigned int length;
+
+    long long unsigned int calculateLength(const char* str) const {
+        long long unsigned int len = 0;
         while (str[len] != '\0') ++len;
         return len;
     }
@@ -15,7 +16,7 @@ private:
     void copyData(const char* str) {
         length = calculateLength(str);
         data = new char[length + 1];
-        for (size_t i = 0; i < length; ++i) {
+        for (long long unsigned int i = 0; i < length; ++i) {
             data[i] = str[i];
         }
         data[length] = '\0';
@@ -82,10 +83,10 @@ public:
     // Concatenation
     String operator+(const String& other) const {
         char* newData = new char[length + other.length + 1];
-        for (size_t i = 0; i < length; ++i) {
+        for (long long unsigned int i = 0; i < length; ++i) {
             newData[i] = data[i];
         }
-        for (size_t i = 0; i < other.length; ++i) {
+        for (long long unsigned int i = 0; i < other.length; ++i) {
             newData[length + i] = other.data[i];
         }
         newData[length + other.length] = '\0';
@@ -102,7 +103,7 @@ public:
     // Equality
     bool operator==(const String& other) const {
         if (length != other.length) return false;
-        for (size_t i = 0; i < length; ++i) {
+        for (long long unsigned int i = 0; i < length; ++i) {
             if (data[i] != other.data[i]) return false;
         }
         return true;
@@ -113,27 +114,27 @@ public:
     }
 
     // Indexing
-    char& operator[](size_t index) {
+    char& operator[](long long unsigned int index) {
         if (index >= length) throw std::out_of_range("Index out of range");
         return data[index];
     }
 
-    const char& operator[](size_t index) const {
+    const char& operator[](long long unsigned int index) const {
         if (index >= length) throw std::out_of_range("Index out of range");
         return data[index];
     }
 
     // Get Length
-    size_t size() const {
+    long long unsigned int size() const {
         return length;
     }
 
     // Substring
-    String substring(size_t start, size_t len) const {
+    String substring(long long unsigned int start, long long unsigned int len) const {
         if (start >= length) throw std::out_of_range("Start index out of range");
         len = (start + len > length) ? length - start : len;
         char* sub = new char[len + 1];
-        for (size_t i = 0; i < len; ++i) {
+        for (long long unsigned int i = 0; i < len; ++i) {
             sub[i] = data[start + i];
         }
         sub[len] = '\0';
@@ -143,10 +144,10 @@ public:
     }
 
     // Find
-    size_t find(const String& substr) const {
-        for (size_t i = 0; i <= length - substr.length; ++i) {
+    long long unsigned int find(const String& substr) const {
+        for (long long unsigned int i = 0; i <= length - substr.length; ++i) {
             bool match = true;
-            for (size_t j = 0; j < substr.length; ++j) {
+            for (long long unsigned int j = 0; j < substr.length; ++j) {
                 if (data[i + j] != substr.data[j]) {
                     match = false;
                     break;
@@ -160,8 +161,8 @@ public:
     // Replace
     String replace(const String& oldStr, const String& newStr) const {
         String result = *this;
-        size_t pos = result.find(oldStr);
-        while (pos != (size_t)-1) {
+        long long unsigned int pos = result.find(oldStr);
+        while (pos != (long long unsigned int)-1) {
             result = result.substring(0, pos) + newStr + result.substring(pos + oldStr.size(), result.size());
             pos = result.find(oldStr);
         }
@@ -171,7 +172,7 @@ public:
     // To Upper Case
     String toUpperCase() const {
         String result = *this;
-        for (size_t i = 0; i < result.length; ++i) {
+        for (long long unsigned int i = 0; i < result.length; ++i) {
             result.data[i] = toUpper(result.data[i]);
         }
         return result;
@@ -180,7 +181,7 @@ public:
     // To Lower Case
     String toLowerCase() const {
         String result = *this;
-        for (size_t i = 0; i < result.length; ++i) {
+        for (long long unsigned int i = 0; i < result.length; ++i) {
             result.data[i] = toLower(result.data[i]);
         }
         return result;
@@ -188,10 +189,10 @@ public:
 
     // Trim
     String trim() const {
-        size_t start = 0;
+        long long unsigned int start = 0;
         while (start < length && isSpace(data[start])) ++start;
 
-        size_t end = length;
+        long long unsigned int end = length;
         while (end > start && isSpace(data[end - 1])) --end;
 
         return substring(start, end - start);

@@ -8,7 +8,8 @@ public:
     char* data;
     long long unsigned int length;
 
-    long long unsigned int calculateLength(const char* str) const {
+    long long unsigned int calculateLength(const char* str) const 
+    {
         long long unsigned int len = 0;
         while (str[len] != '\0') ++len;
         return len;
@@ -39,9 +40,14 @@ public:
     // Default Constructor
     String() : data(new char[1] {'\0'}), length(0) {}
 
+    
     // Parameterized Constructor
     String(const char* str) {
         copyData(str);
+    }
+    String(int len, char fillChar) : length(len) {
+        data = new char[length];
+        memset(data, 0, length);
     }
 
     // Copy Constructor
@@ -58,6 +64,51 @@ public:
     // Destructor
     ~String() {
         delete[] data;
+    }
+
+    bool empty() const {
+        return length == 0;
+    }
+
+    static int custom_strcmp(const char* str1, const char* str2) 
+    {
+        while (*str1 && *str2) 
+        {
+            if (*str1 != *str2) 
+            {
+                return (*str1 < *str2) ? -1 : 1; // Return based on comparison
+            }
+            ++str1;
+            ++str2;
+        }
+
+        // If one string ends before the other
+        if (*str1) return 1;   // `str1` is longer
+        if (*str2) return -1;  // `str2` is longer
+        return 0;              // Strings are equal
+    }
+
+
+    // Custom strcmp-like function
+    int compare(const String& other) const 
+    {
+        return custom_strcmp (this->c_str(), other.c_str());
+    }
+
+    // Getter for raw data
+    const char* c_str() const 
+    {
+        return data ? data : "";
+    }
+
+    // Operator <
+    bool operator<(const String& other) const {
+        return compare(other) < 0;
+    }
+
+    // Operator >
+    bool operator>(const String& other) const {
+        return compare(other) > 0;
     }
 
     // Assignment Operator
@@ -211,5 +262,22 @@ public:
         is.getline(buffer, 1000);
         str = String(buffer);
         return is;
+    }
+    friend String operator+(const char* lhs, const String& rhs) {
+        size_t lhsLength = 0;
+        while (lhs[lhsLength] != '\0') ++lhsLength;
+
+        char* newData = new char[lhsLength + rhs.length + 1];
+        for (size_t i = 0; i < lhsLength; ++i) {
+            newData[i] = lhs[i];
+        }
+        for (size_t i = 0; i < rhs.length; ++i) {
+            newData[lhsLength + i] = rhs.data[i];
+        }
+        newData[lhsLength + rhs.length] = '\0';
+
+        String result(newData);
+        delete[] newData;
+        return result;
     }
 };

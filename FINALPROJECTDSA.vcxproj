@@ -130,6 +130,7 @@
     <ClInclude Include="AVL.h" />
     <ClInclude Include="FIleHandler.h" />
     <ClInclude Include="Filing.h" />
+    <ClInclude Include="RedBlackTree.h" />
     <ClInclude Include="String.h" />
     <ClInclude Include="Vector.h" />
   </ItemGroup>

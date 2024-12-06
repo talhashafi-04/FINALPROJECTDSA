@@ -64,10 +64,10 @@ public:
     AVL()
     {
         ifstream file("AVL/root.txt", ios::binary);
-        if (file)
+        if (!file.is_open())
         {
             cout << "Unable to open AVL root file for input";
-            ofstream outFile("AVL/root.txt", ios::binary,ios::trunc);
+            ofstream outFile("AVL/root.txt", ios::binary);
             rootFile = "";
         }
         int len = 0 ;
@@ -82,7 +82,7 @@ public:
     ~AVL()
     {
         ofstream file("AVL/root.txt", ios::binary);
-        if (file)
+        if (!file.is_open())
         {
             cout << "Unable to open AVL root file for ouptut";
         }
@@ -93,8 +93,12 @@ public:
     }
     AVLNode* loadFromFile(const String& fileName)
     {
+        if (fileName.empty())
+        {
+            return nullptr;
+        }
         ifstream file(("AVL/" + (fileName + ".node")).c_str(), ios::binary);
-        if (!file)
+        if (!file.is_open())
         {
             cerr << "Could not open file " << fileName << " for reading" << endl;
             return nullptr;
@@ -210,7 +214,7 @@ public:
 
     void insert(const String& data, const String& key, const String fileName)
     {
-        insertHelper(rootFile, data, key, fileName);
+        rootFile = insertHelper(rootFile, data, key, fileName);
     }
     String insertHelper(const String& rootFile,const String & data,const String & key , const String fileName)
     {
@@ -364,6 +368,10 @@ public:
         delete node;
         return rootFile;
     }
+    void printTree()
+    {
+        printTree(rootFile);
+    }
     void printTree(const String& rootFile) {
         if (rootFile.empty()) {
             return;
@@ -373,15 +381,14 @@ public:
         if (!node) {
             return;
         }
+        String left = node->left , right = node->right;
+        delete node;
+        printTree(left);
 
-        // Recursively print the left subtree
-        printTree(node->left);
-
-        // Print the current node
+        node = loadFromFile(rootFile);
         cout << "Key: " << node->key << ", Data: " << node->csvRow << ", Height: " << node->height
             << ", Hash: " << node->hash << ", Left: " << node->left << ", Right: " << node->right << endl;
-
-        // Recursively print the right subtree
-        printTree(node->right);
+        delete node;
+        printTree(right);
     }
 };

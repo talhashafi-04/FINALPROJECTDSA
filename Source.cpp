@@ -5,19 +5,20 @@
 int main()
 {
 
-	
+	AVL avl;
 	String rootFile = ""; 
+	avl.insert( "data1", "30","file1");
+	avl.insert( "data2", "20","file2");
+	avl.insert( "data1", "10","file3");
+	avl.insert( "data2", "40","file4");
+	avl.insert( "data3", "50","file5");
+	avl.insert( "data4", "25","file6");
 
 
-	rootFile = AVL::insert(rootFile, "data1", "50")->key ;
-	rootFile = AVL::insert(rootFile, "data2", "30")->key ;
-	rootFile = AVL::insert(rootFile, "data3", "70")->key ;
-	rootFile = AVL::insert(rootFile, "data4", "40")->key ;
-	rootFile = AVL::insert(rootFile, "data5", "35")->key ;
-	rootFile = AVL::insert(rootFile, "data6", "20")->key ;
 
+	avl.printTree(rootFile);
            	 
- 
+	
       
 	int a;
 

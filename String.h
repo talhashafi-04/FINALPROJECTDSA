@@ -70,6 +70,17 @@ public:
         return length == 0;
     }
 
+    static String toString(int i)
+    {
+        String STR;
+        while (i)
+        {
+            STR = (char)('0'+ (i % 10)) + STR;
+            i /= 10;
+        }
+        String ret = STR.c_str();
+        return ret;
+    }
     static int custom_strcmp(const char* str1, const char* str2) 
     {
         while (*str1 && *str2) 
@@ -280,4 +291,29 @@ public:
         delete[] newData;
         return result;
     }
+
+    friend String operator+(char lhs, const String& rhs) {
+        // Allocate memory for the new string
+        char* newData = new char[rhs.length + 2]; // +2: 1 for char + 1 for null terminator
+
+        // Add the single character to the start of the new string
+        newData[0] = lhs;
+
+        // Copy the contents of the existing string
+        for (size_t i = 0; i < rhs.length; ++i) {
+            newData[i + 1] = rhs.data[i];
+        }
+
+        // Null-terminate the new string
+        newData[rhs.length + 1] = '\0';
+
+        // Create the resulting String object
+        String result(newData);
+
+        // Free the allocated memory
+        delete[] newData;
+
+        return result;
+    }
+
 };

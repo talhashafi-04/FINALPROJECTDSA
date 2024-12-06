@@ -107,6 +107,7 @@ public:
         }
 
         --size_;
+
     }
 
     // Output Stream

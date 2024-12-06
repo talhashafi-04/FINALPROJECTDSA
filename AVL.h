@@ -30,10 +30,8 @@ public :
             return;
         }
 
-        // Write key and height
         file.write((char*)&height, sizeof(height));
 
-        // Write lengths and contents for left, right, hash, and csvRow
         int keyLen = key.size(), leftLen = left.size(), rightLen = right.size(), hashLen = hash.size(), dataLen = csvRow.size();
 
         file.write((char*)&keyLen, sizeof(keyLen));
@@ -61,11 +59,39 @@ public :
 
 class AVL
 {
-    
+    String rootFile;
 public:
+    AVL()
+    {
+        ifstream file("AVL/root.txt", ios::binary);
+        if (file)
+        {
+            cout << "Unable to open AVL root file for input";
+            ofstream outFile("AVL/root.txt", ios::binary,ios::trunc);
+            rootFile = "";
+        }
+        int len = 0 ;
 
-    
-    static AVLNode* loadFromFile(const String& fileName)
+        file.read((char*)&len, sizeof(len));
+        String str(len + 1, 0);
+        file.read((char*)str.data, len);
+        rootFile = str;
+        file.close();
+    }
+
+    ~AVL()
+    {
+        ofstream file("AVL/root.txt", ios::binary);
+        if (file)
+        {
+            cout << "Unable to open AVL root file for ouptut";
+        }
+        int len = rootFile.size();
+        file.write((char*)&len, sizeof(len));
+        file.write((char*)rootFile.data, len);
+        file.close();
+    }
+    AVLNode* loadFromFile(const String& fileName)
     {
         ifstream file(("AVL/" + (fileName + ".node")).c_str(), ios::binary);
         if (!file)
@@ -74,11 +100,9 @@ public:
             return nullptr;
         }
 
-        // Read key and height
         int h;
         file.read((char*)&h, sizeof(h));
 
-        // Read lengths and contents for left, right, hash, and csvRow
         int keyLen, leftLen, rightLen, hashLen, dataLen;
         
         file.read((char*)&keyLen, sizeof(keyLen));
@@ -104,7 +128,6 @@ public:
         if(dataLen)
         file.read(csvRow.data, dataLen);
 
-        // Create the node and assign values
         AVLNode* node = new AVLNode(csvRow, keyValue, h);
         node->left = left;
         node->right = right;
@@ -115,14 +138,14 @@ public:
     }
 
 
-    static int getHeight(const String& rootFile) {
+    int getHeight(const String& rootFile) {
         AVLNode* node = loadFromFile(rootFile);
         if (!node) return 0;
         return node->height;
     }
 
 
-    static AVLNode* findMin(const String& rootFile) {
+    AVLNode* findMin(const String& rootFile) {
         AVLNode* current = loadFromFile(rootFile);
         while (current && !current->left.empty()) {
             current = loadFromFile(current->left);
@@ -131,60 +154,65 @@ public:
     }
 
 
-    static AVLNode* rotateRight(const String& rootFile) {
-        // Load the node from its file
+    String rotateRight(const String& rootFile)
+    {
         AVLNode* y = loadFromFile(rootFile);
-        if (!y) return nullptr;
+        if (!y)
+            return "";
+        String st = y->left;
 
-        // Load left child (x)
         AVLNode* x = loadFromFile(y->left);
-        if (!x) return y; // If left child doesn't exist, no rotation is possible
+        if (!x)
+            return rootFile; 
 
-        // Perform rotation
         String T2File = x->right;
         x->right = rootFile;
         y->left = T2File;
 
-        // Update heights
         y->height = max(getHeight(y->left), getHeight(y->right)) + 1;
-        x->height = max(getHeight(x->left), getHeight(x->right)) + 1;
-
-        // Save updated nodes
         y->saveToFile(rootFile);
-        x->saveToFile(x->right);
 
-        // Return new root (x)
-        return x;
+        x->height = max(getHeight(x->left), getHeight(x->right)) + 1;
+        x->saveToFile(st);
+
+        delete x, y;
+
+        return st;
     }
 
-    static AVLNode* rotateLeft(const String& rootFile) {
-        // Load the node from its file
+    String rotateLeft(const String& rootFile) 
+    {
         AVLNode* x = loadFromFile(rootFile);
-        if (!x) return nullptr;
+        if (!x) 
+            return "";
+        String st = x->right;
 
-        // Load right child (y)
         AVLNode* y = loadFromFile(x->right);
-        if (!y) return x; // If right child doesn't exist, no rotation is possible
+        if (!y)
+            return rootFile; 
 
-        // Perform rotation
+
         String T2File = y->left;
         y->left = rootFile;
         x->right = T2File;
 
-        // Update heights
         x->height = max(getHeight(x->left), getHeight(x->right)) + 1;
-        y->height = max(getHeight(y->left), getHeight(y->right)) + 1;
-
-        // Save updated nodes
         x->saveToFile(rootFile);
-        y->saveToFile(y->left);
 
+        y->height = max(getHeight(y->left), getHeight(y->right)) + 1;
+        y->saveToFile(st);
+
+        delete x, y;
         // Return new root (y)
-        return y;
+        return st;
     }
 
-   
-    static AVLNode* insert(const String& rootFile,const String & data,const String & key)
+
+    void insert(const String& data, const String& key, const String fileName)
+    {
+        insertHelper(rootFile, data, key, fileName);
+    }
+    String insertHelper(const String& rootFile,const String & data,const String & key , const String fileName)
     {
         AVLNode* node = nullptr;
         if (!rootFile.empty()) 
@@ -195,27 +223,37 @@ public:
         if (!node)
         {
             AVLNode* newNode = new AVLNode(data , key);
-            newNode->saveToFile(key);
-            return newNode;
+            newNode->saveToFile(fileName);
+            delete newNode;
+            return fileName;
         }
+        String returned = "";
+        bool leftCall = true;
 
         if (key < node->key)
-        {
-            node->left = insert(node->left,data, key)->key ;
+        {   
+            String left = node->left;
+            leftCall = true;
+            delete node;
+            returned = insertHelper(left,data, key , fileName);
         }
         else if (key > node->key) 
         {
-            node->right = insert(node->right,data, key)->key;
+            String right = node->right;
+            leftCall = false;
+            delete node;
+            returned = insertHelper(right,data, key,fileName);
         }
         else 
         {
-            return node;
+            return rootFile;
         }
 
+        node = loadFromFile(rootFile);
+        leftCall ? (node->left = returned) : (node->right = returned);
         node->height = 1 + max(getHeight(node->left), getHeight(node->right));
 
         int balance = getHeight(node->left) - getHeight(node->right);
-
 
         // LL
         if (balance > 1 && key < loadFromFile(node->left)->key) {
@@ -229,110 +267,121 @@ public:
 
         // LR
         if (balance > 1 && key > loadFromFile(node->left)->key) {
-            node->left = rotateLeft(node->left)->key + ".node";
+            node->left = rotateLeft(node->left) ;
+            node->saveToFile(rootFile);
             return rotateRight(rootFile);
         }
 
         // RL
         if (balance < -1 && key < loadFromFile(node->right)->key) {
-            node->right = rotateRight(node->right)->key + ".node";
+            node->right = rotateRight(node->right) ;
+            node->saveToFile(rootFile);
             return rotateLeft(rootFile);
         }
 
         node->saveToFile(rootFile);
-        return node;
+        delete node;
+        return rootFile;
     }
 
-    static AVLNode* deleteNode(const String& rootFile, String key) {
-        // Step 1: Load the current node
+    String deleteNode(const String& rootFile, String key) 
+    {
         AVLNode* node = nullptr;
-        if (!rootFile.empty()) {
+        if (!rootFile.empty())
+        {
             node = loadFromFile(rootFile);
         }
 
-        // Base case: Node not found
-        if (!node) return nullptr;
+        if (!node)
+            return "";
 
-        // Step 2: Perform standard BSString deletion
-        if (key < node->key) {
-            // Key is in the left subtree
-            node->left = deleteNode(node->left, key) ? node->left : "";
+        if (key < node->key)
+        {
+            node->left =  deleteNode(node->left, key);
         }
-        else if (key > node->key) {
-            // Key is in the right subtree
-            node->right = deleteNode(node->right, key) ? node->right : "";
+        else if (key > node->key)
+        {
+            node->right = deleteNode(node->right, key);
         }
-        else {
-            // Key matches the current node
-            // Case 1: Node with one or no child
-            if (!node->left.empty() && !node->right.empty()) {
-                // Case 2: Node with two children
-                // Get the inorder successor (smallest in the right subtree)
-                AVLNode* successor = findMin(node->right);
-                node->key = successor->key;
-
-                // Replace hash if necessary
-                node->hash = successor->hash;
-
-                // Delete the inorder successor
-                node->right = deleteNode(node->right, successor->key) ? node->right : "";
+        else 
+        {
+            if (node->left.empty())//right or no child
+            {
+                if (!remove(rootFile.c_str()))
+                {
+                    cout << "Unable to delete file " << rootFile ;
+                }
+                return node->right; 
             }
-            else {
-                // Case 1: Node with one or no child
-                AVLNode* temp = nullptr;
-                if (!node->left.empty()) {
-                    temp = loadFromFile(node->left);
+            else if (node->right.empty())   //left child
+            {
+                if (!remove(rootFile.c_str()))
+                {
+                    cout << "Unable to delete file " << rootFile;
                 }
-                else if (!node->right.empty()) {
-                    temp = loadFromFile(node->right);
-                }
+                return node->left;
+            }
+            else       
+            {
+                AVLNode* temp = findMin(node->right);
 
-                if (!temp) {
-                    // No child (leaf node)
-                    delete node;
-                    remove(rootFile.c_str());
-                    return nullptr;
-                }
-                else {
-                    // One child
-                    *node = *temp; // Copy child data into current node
-                    delete temp;
-                    remove(temp->left.c_str());
-                }
+                node->key = temp->key;
+                node->csvRow = temp->csvRow;
+                node->hash = temp->hash;
+
+                node->right = deleteNode(node->right, temp->key);
+
             }
         }
 
-        // Step 3: Update the height of the current node
         node->height = 1 + max(getHeight(node->left), getHeight(node->right));
 
-        // Step 4: Balance the node
         int balance = getHeight(node->left) - getHeight(node->right);
 
-        // Left Left Case
+        //LL
         if (balance > 1 && getHeight(node->left) >= getHeight(node->right)) {
             return rotateRight(rootFile);
         }
 
-        // Left Right Case
+        //RR
         if (balance > 1 && getHeight(node->left) < getHeight(node->right)) {
-            node->left = rotateLeft(node->left)->key + ".node";
+            node->left = rotateLeft(node->left) ;
             return rotateRight(rootFile);
         }
 
-        // Right Right Case
+        //LR
         if (balance < -1 && getHeight(node->right) >= getHeight(node->left)) {
             return rotateLeft(rootFile);
         }
 
-        // Right Left Case
+        //RL
         if (balance < -1 && getHeight(node->right) < getHeight(node->left)) {
-            node->right = rotateRight(node->right)->key + ".node";
+            node->right = rotateRight(node->right);
             return rotateLeft(rootFile);
         }
 
-        // Save changes to the file
         node->saveToFile(rootFile);
-        return node;
+        delete node;
+        return rootFile;
     }
-    
+    void printTree(const String& rootFile) {
+        if (rootFile.empty()) {
+            return;
+        }
+
+        AVLNode* node = loadFromFile(rootFile);
+        if (!node) {
+            return;
+        }
+
+        // Recursively print the left subtree
+        printTree(node->left);
+
+        // Print the current node
+        cout << "Key: " << node->key << ", Data: " << node->csvRow << ", Height: " << node->height
+            << ", Hash: " << node->hash << ", Left: " << node->left << ", Right: " << node->right << endl;
+
+        // Recursively print the right subtree
+        printTree(node->right);
+    }
 };

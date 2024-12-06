@@ -30,6 +30,9 @@
     <ClInclude Include="Filing.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="BTrees.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source.cpp">

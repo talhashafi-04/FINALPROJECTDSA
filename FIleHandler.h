@@ -19,7 +19,8 @@ public:
         openFile(fileName);
     }
 
-    void openFile(String& fileName) {
+    void openFile(String& fileName) 
+    {
         dataset = fopen(fileName.data, "r"); // Open file in read mode
         if (dataset == nullptr) {
             cerr << "Error: Unable to open file." << endl;

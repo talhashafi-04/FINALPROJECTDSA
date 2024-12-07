@@ -315,5 +315,26 @@ public:
 
         return result;
     }
+    bool contains(const String& substring) const {
+        if (substring.length > this->length) return false;
+        for (long long unsigned int i = 0; i <= this->length - substring.length; ++i) {
+            bool match = true;
+            for (long long unsigned int j = 0; j < substring.length; ++j) {
+                if (this->data[i + j] != substring.data[j]) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match) return true;
+        }
+        return false;
+    }
+    bool startsWith(const String& prefix) const {
+        if (prefix.length > this->length) return false;
+        for (long long unsigned int i = 0; i < prefix.length; ++i) {
+            if (this->data[i] != prefix.data[i]) return false;
+        }
+        return true;
+    }
 
 };

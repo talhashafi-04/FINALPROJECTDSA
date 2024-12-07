@@ -10,7 +10,7 @@ class AVLNode
 {
 public :
     int height;
-
+    static int i;
     String key;   
     String left;       
     String right;      
@@ -19,11 +19,11 @@ public :
 
 
 
-    AVLNode(const String& data , const String &keyValue, int h = 1): csvRow (data) ,key(keyValue), height(h), left(""), right(""), hash("") {}
-      
+    AVLNode(const String& data, const String& keyValue, int h = 1) : csvRow(data), key(keyValue), height(h), left(""), right(""), hash("") { i++; }
+    ~AVLNode() { i--; }
     void saveToFile(const String& fileName)
     {
-        ofstream file(("AVL/" + (fileName + ".node")).c_str(), ios::binary);
+        ofstream file(((fileName + ".node")).c_str(), ios::binary);
         if (!file)
         {
             cout << "Could not open file " << fileName << " for writing" << endl;
@@ -56,18 +56,20 @@ public :
     
 
 };
+int AVLNode::i = 0;
 
 class AVL
 {
-    String rootFile;
 public:
-    AVL()
+    String rootFile;
+    String pathToroot;
+    AVL(String pathToroot):pathToroot(pathToroot)
     {
-        ifstream file("AVL/root.txt", ios::binary);
+        ifstream file(pathToroot.data, ios::binary);
         if (!file.is_open())
         {
             cout << "Unable to open AVL root file for input";
-            ofstream outFile("AVL/root.txt", ios::binary);
+            ofstream outFile(pathToroot.data, ios::binary);
             rootFile = "";
         }
         int len = 0 ;
@@ -81,7 +83,7 @@ public:
 
     ~AVL()
     {
-        ofstream file("AVL/root.txt", ios::binary);
+        ofstream file(pathToroot.data, ios::binary);
         if (!file.is_open())
         {
             cout << "Unable to open AVL root file for ouptut";
@@ -97,7 +99,7 @@ public:
         {
             return nullptr;
         }
-        ifstream file(("AVL/" + (fileName + ".node")).c_str(), ios::binary);
+        ifstream file(((fileName + ".node")).c_str(), ios::binary);
         if (!file.is_open())
         {
             cerr << "Could not open file " << fileName << " for reading" << endl;
@@ -142,16 +144,22 @@ public:
     }
 
 
-    int getHeight(const String& rootFile) {
+    int getHeight(const String& rootFile)
+    {
         AVLNode* node = loadFromFile(rootFile);
         if (!node) return 0;
-        return node->height;
+        int i = node->height;
+        delete node;
+        return i;
     }
 
 
-    AVLNode* findMin(const String& rootFile) {
+    AVLNode* findMin(const String& rootFile)
+    {
         AVLNode* current = loadFromFile(rootFile);
-        while (current && !current->left.empty()) {
+        while (current && !current->left.empty())
+        {
+            delete current;
             current = loadFromFile(current->left);
         }
         return current;
@@ -179,7 +187,8 @@ public:
         x->height = max(getHeight(x->left), getHeight(x->right)) + 1;
         x->saveToFile(st);
 
-        delete x, y;
+        delete x;
+        delete y;
 
         return st;
     }
@@ -193,8 +202,10 @@ public:
 
         AVLNode* y = loadFromFile(x->right);
         if (!y)
-            return rootFile; 
-
+        {
+            delete x;
+            return rootFile;
+        }
 
         String T2File = y->left;
         y->left = rootFile;
@@ -207,7 +218,7 @@ public:
         y->saveToFile(st);
 
         delete x, y;
-        // Return new root (y)
+
         return st;
     }
 
@@ -250,6 +261,7 @@ public:
         }
         else 
         {
+            delete node;
             return rootFile;
         }
 
@@ -259,30 +271,59 @@ public:
 
         int balance = getHeight(node->left) - getHeight(node->right);
 
+        AVLNode* del = nullptr;
         // LL
-        if (balance > 1 && key < loadFromFile(node->left)->key) {
+        if (balance > 1 && key < (del = loadFromFile(node->left))->key)
+        {   
+            delete del;
+            delete node;
             return rotateRight(rootFile);
         }
-
+        if (del)
+        {
+            delete del;
+            del = nullptr;
+        }
         // RR
-        if (balance < -1 && key > loadFromFile(node->right)->key) {
+        if (balance < -1 && key > (del = loadFromFile(node->right))->key) 
+        {
+            delete node;
+            delete del;
             return rotateLeft(rootFile);
         }
-
+        if (del)
+        {
+            delete del;
+            del = nullptr;
+        }
         // LR
-        if (balance > 1 && key > loadFromFile(node->left)->key) {
+        if (balance > 1 && key > (del = loadFromFile(node->left))->key) 
+        {
             node->left = rotateLeft(node->left) ;
             node->saveToFile(rootFile);
+            delete node;
+            delete del;
             return rotateRight(rootFile);
         }
-
+        if (del)
+        {
+            delete del;
+            del = nullptr;
+        }
         // RL
-        if (balance < -1 && key < loadFromFile(node->right)->key) {
+        if (balance < -1 && key < (del = loadFromFile(node->right))->key)
+        {
             node->right = rotateRight(node->right) ;
             node->saveToFile(rootFile);
+            delete node;
+            delete del;
             return rotateLeft(rootFile);
         }
-
+        if (del)
+        {
+            delete del;
+            del = nullptr;
+        }
         node->saveToFile(rootFile);
         delete node;
         return rootFile;

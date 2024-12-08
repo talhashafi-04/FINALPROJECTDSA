@@ -1,19 +1,24 @@
+#ifndef AVL_H
+#define AVL_H
+
 #include <iostream>
 #include <fstream>
 #include "String.h"
+#include "Vector.h"
+#include<iomanip>
 #include <queue>
 
 using namespace std;
 
 
-class AVLNode 
+class AVLNode
 {
-public :
+public:
     int height;
     static int i;
-    String key;   
-    String left;       
-    String right;      
+    String key;
+    String left;
+    String right;
     String hash;
     String csvRow;
 
@@ -53,7 +58,7 @@ public :
     }
 
 
-    
+
 
 };
 int AVLNode::i = 0;
@@ -63,7 +68,7 @@ class AVL
 public:
     String rootFile;
     String pathToroot;
-    AVL(String pathToroot):pathToroot(pathToroot)
+    AVL(String pathToroot) :pathToroot(pathToroot)
     {
         ifstream file(pathToroot.data, ios::binary);
         if (!file.is_open())
@@ -72,7 +77,7 @@ public:
             ofstream outFile(pathToroot.data, ios::binary);
             rootFile = "";
         }
-        int len = 0 ;
+        int len = 0;
 
         file.read((char*)&len, sizeof(len));
         String str(len + 1, 0);
@@ -110,29 +115,29 @@ public:
         file.read((char*)&h, sizeof(h));
 
         int keyLen, leftLen, rightLen, hashLen, dataLen;
-        
+
         file.read((char*)&keyLen, sizeof(keyLen));
-        String keyValue(keyLen+1, 0);
+        String keyValue(keyLen + 1, 0);
         file.read((char*)keyValue.data, keyLen);
 
         file.read((char*)&leftLen, sizeof(leftLen));
-        String left(leftLen+1, '\0');
+        String left(leftLen + 1, '\0');
         file.read(left.data, leftLen);
 
         file.read((char*)&rightLen, sizeof(rightLen));
-        String right(rightLen+1, '\0');
-        if(rightLen)
-        file.read(right.data, rightLen);
+        String right(rightLen + 1, '\0');
+        if (rightLen)
+            file.read(right.data, rightLen);
 
         file.read((char*)&hashLen, sizeof(hashLen));
-        String hash(hashLen+1, '\0');
-        if(hashLen)
-        file.read(hash.data, hashLen);
+        String hash(hashLen + 1, '\0');
+        if (hashLen)
+            file.read(hash.data, hashLen);
 
         file.read((char*)&dataLen, sizeof(dataLen));
-        String csvRow(dataLen+1, '\0');
-        if(dataLen)
-        file.read(csvRow.data, dataLen);
+        String csvRow(dataLen + 1, '\0');
+        if (dataLen)
+            file.read(csvRow.data, dataLen);
 
         AVLNode* node = new AVLNode(csvRow, keyValue, h);
         node->left = left;
@@ -165,6 +170,46 @@ public:
         return current;
     }
 
+    void update(const String& key, const String& newRow)
+    {
+        update(rootFile, key, newRow);
+    }
+    void update(const String& rootFile, const String& key, const String& newRow)
+    {
+        AVLNode* node = nullptr;
+        if (!rootFile.empty())
+        {
+            node = loadFromFile(rootFile);
+        }
+
+        if (!node)
+        {
+            return;
+        }
+
+        if (key < node->key)
+        {
+            String left = node->left;
+            delete node;
+            update(left, key, newRow);
+        }
+        else if (key > node->key)
+        {
+            String right = node->right;
+            delete node;
+            update(right, key, newRow);
+        }
+        else
+        {
+            node->csvRow = newRow;
+            node->saveToFile(rootFile);
+            String right = node->right;
+            delete node;
+            update(right, key, newRow);
+
+        }
+
+    }
 
     String rotateRight(const String& rootFile)
     {
@@ -175,7 +220,7 @@ public:
 
         AVLNode* x = loadFromFile(y->left);
         if (!x)
-            return rootFile; 
+            return rootFile;
 
         String T2File = x->right;
         x->right = rootFile;
@@ -193,10 +238,10 @@ public:
         return st;
     }
 
-    String rotateLeft(const String& rootFile) 
+    String rotateLeft(const String& rootFile)
     {
         AVLNode* x = loadFromFile(rootFile);
-        if (!x) 
+        if (!x)
             return "";
         String st = x->right;
 
@@ -227,17 +272,17 @@ public:
     {
         rootFile = insertHelper(rootFile, data, key, fileName);
     }
-    String insertHelper(const String& rootFile,const String & data,const String & key , const String fileName)
+    String insertHelper(const String& rootFile, const String& data, const String& key, const String fileName)
     {
         AVLNode* node = nullptr;
-        if (!rootFile.empty()) 
+        if (!rootFile.empty())
         {
             node = loadFromFile(rootFile);
         }
 
         if (!node)
         {
-            AVLNode* newNode = new AVLNode(data , key);
+            AVLNode* newNode = new AVLNode(data, key);
             newNode->saveToFile(fileName);
             delete newNode;
             return fileName;
@@ -246,24 +291,24 @@ public:
         bool leftCall = true;
 
         if (key < node->key)
-        {   
+        {
             String left = node->left;
             leftCall = true;
             delete node;
-            returned = insertHelper(left,data, key , fileName);
+            returned = insertHelper(left, data, key, fileName);
         }
-        else if (key > node->key) 
+        else //if (key >= node->key) 
         {
             String right = node->right;
             leftCall = false;
             delete node;
-            returned = insertHelper(right,data, key,fileName);
+            returned = insertHelper(right, data, key, fileName);
         }
-        else 
-        {
-            delete node;
-            return rootFile;
-        }
+        /* else
+         {
+             delete node;
+             return rootFile;
+         }*/
 
         node = loadFromFile(rootFile);
         leftCall ? (node->left = returned) : (node->right = returned);
@@ -274,7 +319,7 @@ public:
         AVLNode* del = nullptr;
         // LL
         if (balance > 1 && key < (del = loadFromFile(node->left))->key)
-        {   
+        {
             delete del;
             delete node;
             return rotateRight(rootFile);
@@ -285,7 +330,7 @@ public:
             del = nullptr;
         }
         // RR
-        if (balance < -1 && key > (del = loadFromFile(node->right))->key) 
+        if (balance < -1 && key >(del = loadFromFile(node->right))->key)
         {
             delete node;
             delete del;
@@ -297,9 +342,9 @@ public:
             del = nullptr;
         }
         // LR
-        if (balance > 1 && key > (del = loadFromFile(node->left))->key) 
+        if (balance > 1 && key > (del = loadFromFile(node->left))->key)
         {
-            node->left = rotateLeft(node->left) ;
+            node->left = rotateLeft(node->left);
             node->saveToFile(rootFile);
             delete node;
             delete del;
@@ -313,7 +358,7 @@ public:
         // RL
         if (balance < -1 && key < (del = loadFromFile(node->right))->key)
         {
-            node->right = rotateRight(node->right) ;
+            node->right = rotateRight(node->right);
             node->saveToFile(rootFile);
             delete node;
             delete del;
@@ -329,7 +374,7 @@ public:
         return rootFile;
     }
 
-    String deleteNode(const String& rootFile, String key) 
+    String deleteNode(const String& rootFile, String key)
     {
         AVLNode* node = nullptr;
         if (!rootFile.empty())
@@ -342,21 +387,21 @@ public:
 
         if (key < node->key)
         {
-            node->left =  deleteNode(node->left, key);
+            node->left = deleteNode(node->left, key);
         }
         else if (key > node->key)
         {
             node->right = deleteNode(node->right, key);
         }
-        else 
+        else
         {
             if (node->left.empty())//right or no child
             {
                 if (!remove(rootFile.c_str()))
                 {
-                    cout << "Unable to delete file " << rootFile ;
+                    cout << "Unable to delete file " << rootFile;
                 }
-                return node->right; 
+                return node->right;
             }
             else if (node->right.empty())   //left child
             {
@@ -366,7 +411,7 @@ public:
                 }
                 return node->left;
             }
-            else       
+            else
             {
                 AVLNode* temp = findMin(node->right);
 
@@ -390,7 +435,7 @@ public:
 
         //RR
         if (balance > 1 && getHeight(node->left) < getHeight(node->right)) {
-            node->left = rotateLeft(node->left) ;
+            node->left = rotateLeft(node->left);
             return rotateRight(rootFile);
         }
 
@@ -413,7 +458,8 @@ public:
     {
         printTree(rootFile);
     }
-    void printTree(const String& rootFile) {
+    void printTree(const String& rootFile)
+    {
         if (rootFile.empty()) {
             return;
         }
@@ -422,14 +468,41 @@ public:
         if (!node) {
             return;
         }
-        String left = node->left , right = node->right;
+        String left = node->left, right = node->right;
         delete node;
         printTree(left);
 
         node = loadFromFile(rootFile);
-        cout << "Key: " << node->key << ", Data: " << node->csvRow << ", Height: " << node->height
+        cout << "Key: " << setw(10) << node->key << ", Data: " << setw(30) << node->csvRow << ", Height: " << setw(3) << node->height
             << ", Hash: " << node->hash << ", Left: " << node->left << ", Right: " << node->right << endl;
         delete node;
         printTree(right);
     }
+    void getBlocks(Vector<String>& blocks)
+    {
+        getBlocks(rootFile, blocks);
+    }
+
+    void getBlocks(const String& rootFile, Vector<String>& blocks)
+    {
+        if (rootFile.empty())
+        {
+            return;
+        }
+        AVLNode* node = loadFromFile(rootFile);
+        if (!node) {
+            return; // If the node is empty, return
+        }
+        String left = node->left;
+        String right = node->right;
+        String csv = node->csvRow;
+        delete node;
+        getBlocks(left, blocks);
+        blocks.push_back(csv); // Store the current csvRow as a string in the blocks
+        getBlocks(right, blocks);
+    }
+
 };
+
+
+#endif

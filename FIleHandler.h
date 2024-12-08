@@ -60,5 +60,6 @@ public:
         fclose(file); // Close the file
         return length; // Return the calculated length
     }
+    
 };
 

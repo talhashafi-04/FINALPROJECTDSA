@@ -13,7 +13,7 @@ private:
     // Resizes the underlying array to a new capacity
     void resize(size_t newCapacity) {
         T* newData = new T[newCapacity];
-        for (size_t i = 0; i < size_; ++i) {
+        for (size_t i = 0; i < size_; i++) {
             newData[i] = data[i];
         }
         delete[] data;
@@ -102,7 +102,7 @@ public:
             throw std::out_of_range("Index out of range");
         }
 
-        for (size_t i = index; i < size_ - 1; ++i) {
+        for (size_t i = index; i < size_ - 1; i++) {
             data[i] = data[i + 1];
         }
 
@@ -113,7 +113,7 @@ public:
     // Output Stream
     friend std::ostream& operator<<(std::ostream& os, const Vector& vec) {
         os << "[";
-        for (size_t i = 0; i < vec.size_; ++i) {
+        for (size_t i = 0; i < vec.size_; i++) {
             os << vec.data[i];
             if (i < vec.size_ - 1) os << ", ";
         }

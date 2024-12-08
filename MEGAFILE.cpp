@@ -56,6 +56,11 @@ public:
     {
         copyData(other.data);
     }
+    String(String&& other): data(other.data), length(other.length) 
+    {
+        other.data = nullptr;
+        other.length = 0;
+    }
     ~String() {
         delete[] data;
     }
@@ -117,6 +122,17 @@ public:
         if (this != &other) {
             delete[] data;
             copyData(other.data);
+        }
+        return *this;
+    }
+    String& operator=(String&& other) 
+    {
+        if (this != &other) {
+            delete[] data;
+            data = other.data;
+            length = other.length;
+            other.data = nullptr;
+            other.length = 0;
         }
         return *this;
     }
@@ -710,6 +726,10 @@ public:
         delete node;
         return rootFile;
     }
+    void deleteNode(String& key)
+    {
+        rootFile = deleteNode(rootFile, key);
+    }
 
     String deleteNode(const String& rootFile, String key)
     {
@@ -851,12 +871,941 @@ public:
 ///////////////////////////////////////////////////////////RBTREE////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+class RBNode {
+public:
+    int color; // 0 for black, 1 for red
+    String key;
+    String left;
+    String right;
+    String csvRow;
+
+    RBNode(const String& data, const String& keyValue, int c = 1)
+        : csvRow(data), key(keyValue), color(c), left(""), right("") {}
+
+    void saveToFile(const String& fileName) {
+        ofstream file(("RB/" + (fileName + ".node")).c_str(), ios::binary);
+        if (!file) {
+            cout << "Could not open file " << fileName << " for writing" << endl;
+            return;
+        }
+
+        file.write((char*)&color, sizeof(color));
+
+        int keyLen = key.size(), leftLen = left.size(), rightLen = right.size(), dataLen = csvRow.size();
+
+        file.write((char*)&keyLen, sizeof(keyLen));
+        file.write(key.c_str(), keyLen);
+
+        file.write((char*)&leftLen, sizeof(leftLen));
+        file.write(left.c_str(), leftLen);
+
+        file.write((char*)&rightLen, sizeof(rightLen));
+        file.write(right.c_str(), rightLen);
+
+        file.write((char*)&dataLen, sizeof(dataLen));
+        file.write(csvRow.c_str(), dataLen);
+
+        file.close();
+    }
+};
+
+class RBTree {
+    String rootFile;
+    String pathToRoot;
+
+    void getBlocks(const String& rootFile, Vector<String>& blocks)
+    {
+        if (rootFile.empty())
+        {
+            return;
+        }
+
+        RBNode* node = loadFromFile(rootFile); // Load the current node from file
+        if (!node)
+        {
+            return;
+        }
+
+        // Recursively traverse the left subtree
+        getBlocks(node->left, blocks);
+
+        // Add the current node's CSV row to the blocks
+        blocks.push_back(node->csvRow);
+
+        // Recursively traverse the right subtree
+        getBlocks(node->right, blocks);
+
+        delete node; // Clean up to prevent memory leaks
+    }
+
+
+    void update(const String& rootFile, const String& key, const String& newRow)
+    {
+        RBNode* node = nullptr;
+        if (!rootFile.empty())
+        {
+            node = loadFromFile(rootFile);
+        }
+
+        if (!node)
+        {
+            return;
+        }
+
+        if (key < node->key)
+        {
+            String left = node->left;
+            delete node;
+            update(left, key, newRow);
+        }
+        else if (key > node->key)
+        {
+            String right = node->right;
+            delete node;
+            update(right, key, newRow);
+        }
+        else
+        {
+            // Key matches; update the node's csvRow
+            node->csvRow = newRow;
+            node->saveToFile(rootFile);
+
+            // Update further nodes with the same key (if duplicate keys are allowed)
+            String right = node->right;
+            delete node;
+            update(right, key, newRow);
+        }
+    }
+
+
+
+public:
+    RBTree() {
+        ifstream file("RB/root.txt", ios::binary);
+        if (!file) {
+            ofstream outFile("RB/root.txt", ios::binary | ios::trunc);
+            rootFile = "";
+        }
+        else {
+            int len = 0;
+            file.read((char*)&len, sizeof(len));
+            String str(len + 1, 0);
+            file.read((char*)str.data, len);
+            rootFile = str;
+            file.close();
+        }
+    }
+
+    RBTree(const String& pathToRoot) : pathToRoot(pathToRoot)
+    {
+        ifstream file(pathToRoot.data, ios::binary);
+        if (!file.is_open())
+        {
+            cout << "Unable to open Red-Black Tree root file for input" << endl;
+            ofstream outFile(pathToRoot.data, ios::binary | ios::trunc); // Create an empty file if it doesn't exist
+            rootFile = "";
+            outFile.close();
+            return;
+        }
+
+        int len = 0;
+        file.read((char*)&len, sizeof(len));
+        String str(len + 1, 0);
+        file.read((char*)str.data, len);
+        rootFile = str;
+        file.close();
+    }
+
+
+    ~RBTree() {
+        ofstream file("RB/root.txt", ios::binary);
+        if (!file) {
+            cout << "Unable to open RB root file for output";
+        }
+        int len = rootFile.size();
+        file.write((char*)&len, sizeof(len));
+        file.write((char*)rootFile.data, len);
+        file.close();
+    }
+
+    void update(const String& key, const String& newRow)
+    {
+        update(rootFile, key, newRow);
+    }
+
+    RBNode* loadFromFile(const String& fileName) {
+        ifstream file(("RB/" + (fileName + ".node")).c_str(), ios::binary);
+        if (!file) {
+            cerr << "Could not open file " << fileName << " for reading" << endl;
+            return nullptr;
+        }
+
+        int c, keyLen, leftLen, rightLen, dataLen;
+        file.read((char*)&c, sizeof(c));
+
+        file.read((char*)&keyLen, sizeof(keyLen));
+        String keyValue(keyLen + 1, 0);
+        file.read((char*)keyValue.data, keyLen);
+
+        file.read((char*)&leftLen, sizeof(leftLen));
+        String left(leftLen + 1, '\0');
+        if (leftLen) file.read(left.data, leftLen);
+
+        file.read((char*)&rightLen, sizeof(rightLen));
+        String right(rightLen + 1, '\0');
+        if (rightLen) file.read(right.data, rightLen);
+
+        file.read((char*)&dataLen, sizeof(dataLen));
+        String csvRow(dataLen + 1, '\0');
+        if (dataLen) file.read(csvRow.data, dataLen);
+
+        RBNode* node = new RBNode(csvRow, keyValue, c);
+        node->left = left;
+        node->right = right;
+
+        file.close();
+        return node;
+    }
+
+
+
+
+    String rotateRight(const String& rootFile) {
+        RBNode* y = loadFromFile(rootFile);
+        if (!y) return rootFile;
+        String st = y->left;
+
+        RBNode* x = loadFromFile(st);
+        if (!x) return rootFile;
+
+        String T2 = x->right;
+        x->right = rootFile;
+        y->left = T2;
+
+        y->saveToFile(rootFile);
+        x->saveToFile(st);
+
+        delete x;
+        delete y;
+
+        return st;
+    }
+
+    String rotateLeft(const String& rootFile) {
+        RBNode* x = loadFromFile(rootFile);
+        if (!x) return rootFile;
+        String st = x->right;
+
+        RBNode* y = loadFromFile(x->right);
+        if (!y) return rootFile;
+
+        String T2 = y->left;
+        y->left = rootFile;
+        x->right = T2;
+
+        x->saveToFile(rootFile);
+        y->saveToFile(st);
+
+        delete x;
+        delete y;
+
+        return st;
+    }
+
+    String balanceInsert(const String& rootFile) {
+        RBNode* node = loadFromFile(rootFile);
+        if (!node) return rootFile;
+
+        RBNode* leftNode = node->left.empty() ? nullptr : loadFromFile(node->left);
+        RBNode* rightNode = node->right.empty() ? nullptr : loadFromFile(node->right);
+
+        // Case 1: Recoloring
+        if (leftNode && leftNode->color == 1 && rightNode && rightNode->color == 1) {
+            node->color = 1;
+            leftNode->color = 0;
+            rightNode->color = 0;
+
+            node->saveToFile(rootFile);
+            leftNode->saveToFile(node->left);
+            rightNode->saveToFile(node->right);
+
+            delete node;
+            delete leftNode;
+            delete rightNode;
+            return rootFile;
+        }
+
+        // Case 2: Left-Left (LL)
+        if (leftNode && leftNode->color == 1) {
+            RBNode* leftLeftNode = leftNode->left.empty() ? nullptr : loadFromFile(leftNode->left);
+            if (leftLeftNode && leftLeftNode->color == 1) {
+                String newRoot = rotateRight(rootFile);
+                RBNode* newNode = loadFromFile(newRoot);
+                RBNode* newRightNode = newNode->right.empty() ? nullptr : loadFromFile(newNode->right);
+
+                newNode->color = 0;
+                if (newRightNode) newRightNode->color = 1;
+
+                newNode->saveToFile(newRoot);
+                if (newRightNode) newRightNode->saveToFile(newNode->right);
+
+                delete newNode;
+                delete newRightNode;
+                delete node;
+                delete leftNode;
+                delete leftLeftNode;
+                return newRoot;
+            }
+            delete leftLeftNode;
+        }
+
+        // Additional cases for LR, RR, RL omitted for brevity
+        return rootFile;
+    }
+
+    void insert(const String& data, const String& key, const String& fileName) {
+        rootFile = insertHelper(rootFile, data, key, fileName);
+
+        // Ensure the root node is always black
+        RBNode* rootNode = loadFromFile(rootFile);
+        if (rootNode) {
+            rootNode->color = 0; // Black
+            rootNode->saveToFile(rootFile);
+            delete rootNode;
+        }
+    }
+
+    String insertHelper(const String& rootFile, const String& data, const String& key, const String& fileName) {
+        RBNode* node = nullptr;
+
+        // Load the root node if it exists
+        if (!rootFile.empty()) {
+            node = loadFromFile(rootFile);
+        }
+
+        // Base case: Create a new node if the tree is empty
+        if (!node) {
+            RBNode* newNode = new RBNode(data, key, 1); // New nodes are Red by default
+            newNode->saveToFile(fileName);
+            delete newNode;
+            return fileName;
+        }
+
+        String returnedFile = "";
+
+        // Perform BST insertion
+        if (key < node->key) {
+            String left = node->left;
+            delete node;
+            returnedFile = insertHelper(left, data, key, fileName);
+            node = loadFromFile(rootFile);
+            node->left = returnedFile;
+        }
+        else if (key > node->key) {
+            String right = node->right;
+            delete node;
+            returnedFile = insertHelper(right, data, key, fileName);
+            node = loadFromFile(rootFile);
+            node->right = returnedFile;
+        }
+        else {
+            // Duplicate keys are not allowed
+            return rootFile;
+        }
+
+        // Fix Red-Black Tree properties after insertion
+        String fixedRoot = fixViolations(rootFile, node);
+        delete node;
+        return fixedRoot;
+    }
+
+    void printTree()
+    {
+        printTree(rootFile);
+    }
+    
+    void printTree(const String& rootFile) {
+        if (rootFile.empty()) {
+            return;
+        }
+
+        RBNode* node = loadFromFile(rootFile);
+        if (!node) {
+            return;
+        }
+
+        // Recursively print the left subtree
+        printTree(node->left);
+
+        // Print the current node
+        cout << "Key: " << node->key
+            << ", Data: " << node->csvRow
+            << ", Color: " << (node->color == 0 ? "Black" : "Red")
+            << ", Left: " << node->left
+            << ", Right: " << node->right
+            << endl;
+
+        // Recursively print the right subtree
+        printTree(node->right);
+
+        delete node;
+    }
+
+
+
+    String fixViolations(const String& rootFile, RBNode* node) {
+        RBNode* parent = node;
+        RBNode* leftChild = (!node->left.empty()) ? loadFromFile(node->left) : nullptr;
+        RBNode* rightChild = (!node->right.empty()) ? loadFromFile(node->right) : nullptr;
+
+        // Case 1: Both children of a Red node are Red
+        if (node->color == 1 &&
+            ((leftChild && leftChild->color == 1) || (rightChild && rightChild->color == 1))) {
+            node->color = 0; // Recolor node to Black
+            if (leftChild) leftChild->color = 1; // Recolor left child to Red
+            if (rightChild) rightChild->color = 1; // Recolor right child to Red
+        }
+
+        // Case 2: Left-Heavy Rotations (LL and LR)
+        if (leftChild && leftChild->color == 1) {
+            if (!rightChild || rightChild->color == 0) {
+                if (!leftChild->left.empty() && loadFromFile(leftChild->left)->color == 1) {
+                    return rotateRight(rootFile); // LL Case
+                }
+                if (!leftChild->right.empty() && loadFromFile(leftChild->right)->color == 1) {
+                    node->left = rotateLeft(node->left);
+                    node->saveToFile(rootFile);
+                    return rotateRight(rootFile); // LR Case
+                }
+            }
+        }
+
+        // Case 3: Right-Heavy Rotations (RR and RL)
+        if (rightChild && rightChild->color == 1) {
+            if (!leftChild || leftChild->color == 0) {
+                if (!rightChild->right.empty() && loadFromFile(rightChild->right)->color == 1) {
+                    return rotateLeft(rootFile); // RR Case
+                }
+                if (!rightChild->left.empty() && loadFromFile(rightChild->left)->color == 1) {
+                    node->right = rotateRight(node->right);
+                    node->saveToFile(rootFile);
+                    return rotateLeft(rootFile); // RL Case
+                }
+            }
+        }
+
+        node->saveToFile(rootFile);
+        delete leftChild;
+        delete rightChild;
+        return rootFile;
+    }
+
+    String balanceAfterDelete(const String& rootFile, const String& key) {
+        if (rootFile.empty()) return rootFile;
+
+        RBNode* node = loadFromFile(rootFile);
+        if (!node) return rootFile;
+
+        // Case 1: If the node to delete is black, and its sibling is black, we need to fix the double-black node.
+        if (node->color == 0) {
+            String siblingFile = node->left;
+            RBNode* sibling = loadFromFile(siblingFile);
+
+            // Case 1.1: Sibling is red, rotate to fix the double-black node.
+            if (sibling && sibling->color == 1) {
+                node->color = 1; // Promote the current node to red
+                sibling->color = 0; // Demote sibling to black
+                String newRoot = rotateLeft(siblingFile);
+                return newRoot;
+            }
+            // Case 1.2: Sibling is black and its children are black, recolor the sibling to red.
+            else if (sibling && sibling->color == 0) {
+                sibling->color = 1;
+                node->color = 0; // Ensure the node is black
+                return rootFile; // Return after recoloring.
+            }
+        }
+
+        delete node;
+        return rootFile;  // Return root (might change if rotated)
+    }
+
+    String findMin(const String& rootFile) {
+        RBNode* node = loadFromFile(rootFile);
+        while (node && !node->left.empty()) {
+            String left = node->left;
+            delete node;
+            node = loadFromFile(left);
+        }
+        String minKey = node ? node->key : "";
+        delete node;
+        return minKey;
+    }
+
+    // Deletion logic
+    String deleteHelper(const String& rootFile, const String& key) {
+        RBNode* node = loadFromFile(rootFile);
+        if (!node) return rootFile;
+
+        if (key < node->key) {
+            node->left = deleteHelper(node->left, key);
+        }
+        else if (key > node->key) {
+            node->right = deleteHelper(node->right, key);
+        }
+        else {
+            // Node found: handle deletion cases
+            if (node->left.empty() && node->right.empty()) {
+                delete node;
+                return ""; // Leaf node
+            }
+            else if (node->left.empty() || node->right.empty()) {
+                String child = node->left.empty() ? node->right : node->left;
+                delete node;
+                return child; // Single child
+            }
+            else {
+                // Two children: Replace with in-order successor
+                String minKey = findMin(node->right);
+                RBNode* successor = loadFromFile(minKey);
+                node->key = successor->key;
+                node->csvRow = successor->csvRow;
+                node->right = deleteHelper(node->right, successor->key);
+                delete successor;
+            }
+        }
+
+        String newRoot = balanceAfterDelete(rootFile, key);
+        node->saveToFile(rootFile);
+        delete node;
+        return newRoot;
+    }
+
+    void deleteNode(const String& key) {
+        rootFile = deleteHelper(rootFile, key);
+
+        // Ensure root is always black
+        RBNode* root = loadFromFile(rootFile);
+        if (root) {
+            root->color = 0; // Black
+            root->saveToFile(rootFile);
+            delete root;
+        }
+    }
+
+    void getBlocks(Vector<String>& blocks)
+    {
+        getBlocks(rootFile, blocks);
+    }
+
+
+
+
+    void testInsert() {
+        insert("Data1", "50", "node50");
+        insert("Data2", "21", "node21");
+        insert("Data3", "54", "node54");
+        insert("Data4", "12", "node12");
+        insert("Data5", "43", "node43");
+        insert("Data6", "57", "node57");
+        insert("Data7", "16", "node16");
+        insert("Data7", "53", "node53");
+        insert("Data7", "15", "node15");
+
+
+
+        deleteNode("57");
+        deleteNode("53");
+        printTree(rootFile);
+
+    }
+};
+
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////B-TREE/////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+class BTreeNode 
+{
 
+public:
+    int degree;
+    int numKeys;
+    bool isLeaf;
+    String* keys;
+    String* children; 
+    String fileName;  
+    String csvRow;
+    
+
+    BTreeNode(int deg, bool leaf) : degree(deg), isLeaf(leaf), numKeys(0), csvRow("")
+    {
+        keys = new String[2 * degree - 1];
+        children = new String[2 * degree];
+    }
+
+    ~BTreeNode() 
+    {
+        delete[] keys;
+        delete[] children;
+    }
+
+    void saveToFile(const String& fileName)
+    {
+        this->fileName = fileName;
+        std::ofstream file(("BTree/" + fileName + ".node").c_str(), std::ios::binary);
+        if (!file) {
+            std::cerr << "Error: Could not open file " << fileName << " for writing." << std::endl;
+            return;
+        }
+
+        file.write((char*)&degree, sizeof(degree));
+        file.write((char*)&numKeys, sizeof(numKeys));
+        file.write((char*)&isLeaf, sizeof(isLeaf));
+
+        int fileNameLen = fileName.size();
+        file.write((char*)&fileNameLen, sizeof(fileNameLen));
+        file.write(fileName.c_str(), fileNameLen);
+
+        int csvLen = csvRow.size();
+        file.write((char*)&csvLen, sizeof(csvLen));
+        file.write(csvRow.c_str(), csvLen);
+
+        for (int i = 0; i < numKeys; ++i) {
+            int keyLen = keys[i].size();
+            file.write((char*)&keyLen, sizeof(keyLen));
+            file.write(keys[i].c_str(), keyLen);
+        }
+
+        if (!isLeaf) {
+            for (int i = 0; i <= numKeys; ++i) {
+                int childLen = children[i].size();
+                file.write((char*)&childLen, sizeof(childLen));
+                file.write(children[i].c_str(), childLen);
+            }
+        }
+
+        file.close();
+    }
+
+    static BTreeNode* loadFromFile(const String& fileName) {
+        std::ifstream file(("BTree/" + fileName + ".node").c_str(), std::ios::binary);
+        if (!file) {
+            std::cerr << "Error: Could not open file " << fileName << " for reading." << std::endl;
+            return nullptr;
+        }
+
+        int degree, numKeys;
+        bool isLeaf;
+
+        file.read((char*)&degree, sizeof(degree));
+        file.read((char*)&numKeys, sizeof(numKeys));
+        file.read((char*)&isLeaf, sizeof(isLeaf));
+
+        int fileNameLen;
+        file.read((char*)&fileNameLen, sizeof(fileNameLen));
+        char* fileNameBuffer = new char[fileNameLen + 1];
+        file.read(fileNameBuffer, fileNameLen);
+        fileNameBuffer[fileNameLen] = '\0';
+        String loadedFileName = fileNameBuffer;
+        delete[] fileNameBuffer;
+
+        int csvLen;
+        file.read((char*)&csvLen, sizeof(csvLen));
+        char* csvBuffer = new char[csvLen + 1];
+        file.read(csvBuffer, csvLen);
+        csvBuffer[csvLen] = '\0';
+        String loadedCsvRow = csvBuffer;
+        delete[] csvBuffer;
+
+        BTreeNode* node = new BTreeNode(degree, isLeaf);
+        node->fileName = loadedFileName;
+        node->numKeys = numKeys;
+
+        for (int i = 0; i < numKeys; ++i) {
+            int keyLen;
+            file.read((char*)&keyLen, sizeof(keyLen));
+            char* keyBuffer = new char[keyLen + 1];
+            file.read(keyBuffer, keyLen);
+            keyBuffer[keyLen] = '\0';
+            node->keys[i] = keyBuffer;
+            delete[] keyBuffer;
+        }
+
+        if (!isLeaf) {
+            for (int i = 0; i <= numKeys; ++i) {
+                int childLen;
+                file.read((char*)&childLen, sizeof(childLen));
+                char* childBuffer = new char[childLen + 1];
+                file.read(childBuffer, childLen);
+                childBuffer[childLen] = '\0';
+                node->children[i] = childBuffer;
+                delete[] childBuffer;
+            }
+        }
+
+        file.close();
+        return node;
+    }
+};
+
+class BTree {
+private:
+    String rootFile;
+    String pathToRoot;
+    int degree;
+
+public:
+    BTree(int deg, const String& path) : degree(deg), pathToRoot(path)
+    {
+        // Check if root file exists
+        ifstream file(pathToRoot.data, ios::binary);
+        if (!file.is_open())
+        {
+            cout << "Unable to open B-Tree root file. Creating new." << endl;
+            ofstream outFile(pathToRoot.data, ios::binary);
+            rootFile = "";
+        }
+        else
+        {
+            // Read root file name
+            int len = 0;
+            file.read((char*)&len, sizeof(len));
+            String str(len + 1, 0);
+            file.read((char*)str.data, len);
+            rootFile = str;
+        }
+        file.close();
+    }
+
+    void insert(const String& data, const String& key, const String& fileName) {
+        if (rootFile.empty()) {
+            rootFile = "root";
+            BTreeNode* root = new BTreeNode(degree, true);
+            root->keys[0] = key;
+            root->numKeys = 1;
+            root->saveToFile(rootFile);
+            delete root;
+        }
+        else {
+            BTreeNode* root = BTreeNode::loadFromFile(rootFile);
+            if (!root) {
+                std::cerr << "Error: Could not load root node from file." << std::endl;
+                return;
+            }
+
+            if (root->numKeys == 2 * degree - 1) {
+                String newRootFile = root->keys[root->numKeys / 2];
+                BTreeNode* newRoot = new BTreeNode(degree, false);
+                newRoot->children[0] = rootFile;
+                newRoot->saveToFile(newRootFile);
+                splitChild(rootFile, newRootFile, 0);
+
+                int i = 0;
+                if (newRoot->keys[0] < key) {
+                    i++;
+                }
+                insertNonFull(newRootFile, data, key);
+
+                newRoot->saveToFile(newRootFile);
+                rootFile = newRootFile;
+                delete newRoot;
+            }
+            else {
+                insertNonFull(rootFile, data, key);
+            }
+            delete root;
+        }
+
+        BTreeNode* targetNode = new BTreeNode(degree, true);
+        targetNode->keys[0] = data;
+        targetNode->numKeys = 1;
+        //targetNode->saveToFile(fileName);
+        delete targetNode;
+    }
+
+    void traverse() {
+        if (!rootFile.empty()) {
+            traverse(rootFile);
+        }
+    }
+
+    void splitChild(const String& root, const String& s, int index) {
+        BTreeNode* parent = BTreeNode::loadFromFile(root);
+        if (!parent) {
+            std::cerr << "Error: Could not load parent node from file." << std::endl;
+            return;
+        }
+
+        BTreeNode* fullChild = BTreeNode::loadFromFile(s);
+        if (!fullChild) {
+            std::cerr << "Error: Could not load full child node from file." << std::endl;
+            delete parent;
+            return;
+        }
+
+        String newChildFile = "Node3"/* + String::toString(rand())*/;
+        BTreeNode* newChild = new BTreeNode(degree, parent->isLeaf);
+        newChild->numKeys = degree - 1;
+
+        for (int j = 0; j < degree - 1; j++) {
+            newChild->keys[j] = parent->keys[j + degree];
+        }
+
+        if (!parent->isLeaf) {
+            for (int j = 0; j < degree; j++) {
+                newChild->children[j] = parent->children[j + degree];
+            }
+        }
+
+        parent->numKeys = degree - 1;
+        newChild->saveToFile(newChildFile);
+
+        for (int j = parent->numKeys; j >= index + 1; j--) {
+            fullChild->children[j + 1] = fullChild->children[j];
+        }
+        fullChild->children[index + 1] = newChildFile;
+
+        for (int j = parent->numKeys - 1; j >= index; j--) {
+            fullChild->keys[j + 1] = fullChild->keys[j];
+        }
+        fullChild->keys[index] = parent->keys[degree - 1];
+
+        fullChild->numKeys++;
+        parent->saveToFile(root);
+        fullChild->saveToFile(s);
+
+        delete parent;
+        delete fullChild;
+        delete newChild;
+    }
+
+    void insertNonFull(const String& nodeFile, const String& data, const String& key) {
+        BTreeNode* node = BTreeNode::loadFromFile(nodeFile);
+        if (!node) {
+            std::cerr << "Error: Could not load node from file." << std::endl;
+            return;
+        }
+
+        int i = node->numKeys - 1;
+
+        if (node->isLeaf) {
+            while (i >= 0 && key < node->keys[i]) {
+                node->keys[i + 1] = node->keys[i];
+                i--;
+            }
+
+            node->keys[i + 1] = key;
+            node->numKeys++;
+            node->saveToFile(nodeFile);
+        }
+        else {
+            while (i >= 0 && key < node->keys[i]) {
+                i--;
+            }
+            i++;
+
+            if (BTreeNode::loadFromFile(node->children[i])->numKeys == 2 * degree - 1) {
+                splitChild(rootFile, nodeFile, i);
+                if (key > node->keys[i]) {
+                    i++;
+                }
+            }
+            insertNonFull(node->children[i], data, key);
+        }
+        delete node;
+    }
+
+    void traverse(const String& nodeFile) {
+        BTreeNode* node = BTreeNode::loadFromFile(nodeFile);
+        if (!node) {
+            return;
+        }
+
+        for (int i = 0; i < node->numKeys; i++) {
+            if (!node->isLeaf) {
+                traverse(node->children[i]);
+            }
+            std::cout << node->keys[i] << " ";
+        }
+
+        if (!node->isLeaf) {
+            traverse(node->children[node->numKeys]);
+        }
+        delete node;
+    }
+
+    void getBlocks(Vector<String>& blocks) {
+        getBlocks(rootFile, blocks);
+    }
+
+    void getBlocks(const String& nodeFile, Vector<String>& blocks) {
+        if (nodeFile.empty()) {
+            return;
+        }
+
+        BTreeNode* node = BTreeNode::loadFromFile(nodeFile);
+        if (!node) {
+            return;
+        }
+
+        blocks.push_back(node->csvRow);
+
+        for (int i = 0; i < node->numKeys; i++) {
+            if (!node->isLeaf) {
+                getBlocks(node->children[i], blocks);
+            }
+            blocks.push_back(node->keys[i]);
+        }
+
+        if (!node->isLeaf) {
+            getBlocks(node->children[node->numKeys], blocks);
+        }
+
+        delete node;
+    }
+
+
+
+    void update(const String& key, const String& newRow)
+    {
+        update(rootFile, key, newRow);
+    }
+
+    void update(const String& rootFile, const String& key, const String& newRow)
+    {
+        BTreeNode* node = nullptr;
+        if (!rootFile.empty()) {
+            node = BTreeNode::loadFromFile(rootFile);
+        }
+
+        if (!node) {
+            return;
+        }
+
+        int i = 0;
+
+        // Find the index of the key or the child to traverse
+        while (i < node->numKeys && key > node->keys[i]) {
+            i++;
+        }
+
+        if (i < node->numKeys && node->keys[i] == key) {
+            // Key found; update the corresponding CSV data
+            node->csvRow = newRow;
+            node->saveToFile(rootFile);
+        }
+        else if (!node->isLeaf) {
+            // Key not found; recurse on the appropriate child
+            update(node->children[i], key, newRow);
+        }
+
+        delete node;
+    }
+
+
+};
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////// ///MERKLE TREE//////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1011,6 +1960,7 @@ private:
     String treeType;
     bool useSHA256;
     String currentTree;
+    int degree;
 
     void saveBranches()
     {
@@ -1113,8 +2063,8 @@ private:
     }
 
 public:
-    Repository(const String directory = "", String tree = "AVL", bool useSHA256 = true)
-        : repo(directory), treeType(tree), useSHA256(useSHA256)
+    Repository(const String directory = "", String tree = "AVL", bool useSHA256 = true, int degree = 0)
+        : repo(directory), treeType(tree), useSHA256(useSHA256), degree(degree)
     {
         if (!exists(directory.c_str()))
         {
@@ -1207,6 +2157,7 @@ public:
         saveCurrentBranch();
         initializeCurrentTree();
 
+
         load(csvPath);
     }
 
@@ -1235,6 +2186,42 @@ public:
         saveBranches();
     }
 
+    void displayLog(const String& branchName)
+    {
+        String branchLogPath = repo + "/branches/" + branchName + "/" + branchName + "_log.txt";
+
+        if (!exists(branchLogPath.c_str()))
+        {
+            cout << "No commit history available for branch: " << branchName << '\n';
+            return;
+        }
+
+        ifstream logFile(branchLogPath.c_str());
+        if (!logFile)
+        {
+            cout << "Unable to read the log file for branch: " << branchName << '\n';
+            return;
+        }
+
+        String logLine(500, 0); 
+        bool hasCommits = false;
+
+        cout << "Commit History for Branch: " << branchName << '\n';
+        cout << "----------------------------------------\n";
+
+        while (logFile.getline(logLine.data, 500))
+        {
+            cout << logLine.data << '\n';
+            hasCommits = true;
+        }
+
+        logFile.close();
+
+        if (!hasCommits)
+        {
+            cout << "No commit history available for branch: " << branchName << '\n';
+        }
+    }
 
     void checkout(const String& branchName)
     {
@@ -1302,33 +2289,68 @@ public:
 
     void commit(const String& commitMessage)
     {
-        //check if commit exist, is this first commit?
+        String branchPath = repo + "/branches/" + currentBranch;
+        String treePath = branchPath + "/tree";
+        String commitFolderPath = branchPath + "/commits";
 
-
-        //do this
-
-        //make merkel tree of last commit and current tree , wheather there are changes or not?
-
-        String root;
-        String path = repo + "/branches/" + currentBranch + "/tree/";
+        if (!exists(commitFolderPath.c_str()))
         {
-            AVL avl(path + "root.txt");
-            root = avl.rootFile;
-        }
-        if (treeType == "avl" || treeType == "AVL")
-        {
-            String path = repo + "/branches/" + currentBranch + "/tree/";
-            AVL avl(path + "root.txt");
-            Vector<String> blocks;
-            avl.getBlocks(blocks);
-            MerkleTree tree(blocks, useSHA256);
-            String rootHash = tree.getRootHash();
+            create_directories(commitFolderPath.c_str());
         }
 
+        Vector<String> blocks;
+        AVL avl(treePath + "/root.txt");
+        avl.getBlocks(blocks);
+        MerkleTree sourceTree(blocks, useSHA256);
+        String sourceMerkleRoot = sourceTree.getRootHash();
 
+        String commitPath = commitFolderPath + "/commit_" + sourceMerkleRoot;
+        if (!exists(commitPath.c_str()))
+        {
+            create_directories(commitPath.c_str());
 
+            for (const auto& entry : directory_iterator(treePath.c_str()))
+            {
+                String destPath = (commitPath + "/" + entry.path().filename().string().c_str());
+                copy(entry.path().c_str(), destPath.c_str());
+            }
+        }
+        else
+        {
+            cout << "Commit folder already exists for Merkle root: " << sourceMerkleRoot << '\n';
+            return;
+        }
 
+        Vector<String> commitBlocks;
+        AVL destAvl(commitPath + "/root.txt");
+        destAvl.getBlocks(commitBlocks);
+        MerkleTree destTree(commitBlocks, useSHA256);
+        String destMerkleRoot = destTree.getRootHash();
+
+        if (sourceMerkleRoot != destMerkleRoot)
+        {
+            cout << "Corruption detected. Resolving discrepancies...\n";
+
+        }
+
+        // Step 6: Append the commit details to the log file
+        String branchLogPath = branchPath + "/" + currentBranch + "_log.txt";
+        ofstream logFile(branchLogPath.c_str(), ios::app);
+        if (!logFile)
+        {
+            cout << "Failed to update the branch log. Commit aborted.\n";
+            return;
+        }
+        time_t now = time(0);
+        logFile << "Commit: " << now << ", Message: " << commitMessage
+            << ", Merkle Root: " << sourceMerkleRoot
+            << ", Branch: " << currentBranch << '\n';
+        logFile.close();
+
+        cout << "Commit successful. Merkle root saved: " << sourceMerkleRoot << '\n';
     }
+
+
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -1341,6 +2363,19 @@ public:
             AVL avl(path);
             avl.printTree();
         }
+        if (treeType == "btree" || treeType == "BTREE")
+        {
+            String path = repo + "/branches/" + branchName + "/tree/root.txt";
+            BTree btree(degree, path);
+            btree.traverse();
+        }
+        else if (treeType == "redblack" || treeType == "RedBlack")
+        {
+            String path = repo + "/branches/" + branchName + "/tree/root.txt";
+            RBTree rbTree(path);
+            rbTree.printTree(); // Assuming printTree is the method for visualization
+        }
+
     }
     void load(const String& csvPath)
     {
@@ -1434,6 +2469,74 @@ public:
             }
 
         }
+        if (treeType == "BTREE" || treeType == "btree")
+        {
+            BTree btree(degree, (treePath + "/root.txt").c_str());
+            temp = String(100, 0);
+            int csvRowNum = 0;
+            while (csvFile.getline(temp.data, 100))
+            {
+                csvRowNum++;
+                String line = temp.data;
+                temp = String(100, 0);
+
+
+                int index = 0;
+                int count = 0;
+                for (int i = 0; i < line.size(); i++)
+                {
+                    if (count == selectedCol)
+                    {
+                        if (line[i] == ',')
+                        {
+                            temp[index] = 0;
+                            break;
+                        }
+                        temp[index++] = line[i];
+                    }
+                    if (line[i] == ',')
+                    {
+                        count++;
+                    }
+                }
+
+                btree.insert(line, temp.data, generateUniquePath(treePath + "/file"));
+            }
+        }
+        else if (treeType == "RedBlack" || treeType == "redblack")
+        {
+            RBTree rbTree((treePath + "/root.txt").c_str());
+            temp = String(100, 0);
+            int csvRowNum = 0;
+            while (csvFile.getline(temp.data, 100))
+            {
+                csvRowNum++;
+                String line = temp.data;
+                temp = String(100, 0);
+
+                int index = 0;
+                int count = 0;
+                for (int i = 0; i < line.size(); i++)
+                {
+                    if (count == selectedCol)
+                    {
+                        if (line[i] == ',')
+                        {
+                            temp[index] = 0;
+                            break;
+                        }
+                        temp[index++] = line[i];
+                    }
+                    if (line[i] == ',')
+                    {
+                        count++;
+                    }
+                }
+
+                rbTree.insert(line, temp.data, generateUniquePath(treePath + "/file"));
+            }
+        }
+
 
     }
     void update(String key, String newRow)
@@ -1445,6 +2548,21 @@ public:
             avl.update(key, newRow);
 
         }
+
+        if (treeType == "btree" || treeType == "BTREE")
+        {
+            String Path = repo + "/branches/" + currentBranch + "/tree/root.txt";
+            BTree btree(degree, Path);
+            btree.update(key, newRow);
+
+        }
+        else if (treeType == "redblack" || treeType == "RedBlack")
+        {
+            // Handle Red-Black tree update
+            String path = repo + "/branches/" + currentBranch + "/tree/root.txt";
+            RBTree rbTree(path);
+            rbTree.update(key, newRow);
+        }
     }
     void add(String key, String newRow)
     {
@@ -1454,6 +2572,28 @@ public:
             AVL avl(Path);
             avl.insert(newRow, key, generateUniquePath(repo + "/branches/" + currentBranch + "/tree/file"));
 
+        }
+        if (treeType == "btree" || treeType == "BTREE")
+        {
+            String Path = repo + "/branches/" + currentBranch + "/tree/root.txt";
+            BTree btree(degree, Path);
+            btree.insert(newRow, key, generateUniquePath(repo + "/branches/" + currentBranch + "/tree/file"));
+
+        }
+        else if (treeType == "redblack" || treeType == "RED_BLACK" || treeType == "RedBlack")
+        {
+            String path = repo + "/branches/" + currentBranch + "/tree/root.txt";
+            RBTree rbTree(path);
+            rbTree.insert(newRow, key, generateUniquePath(repo + "/branches/" + currentBranch + "/tree/file"));
+        }
+    }
+    void del(String key)
+    {
+        if (treeType == "avl" || treeType == "AVL")
+        {
+            String Path = repo + "/branches/" + currentBranch + "/tree/root.txt";
+            AVL avl(Path);
+            avl.deleteNode(key);
         }
     }
 
@@ -1491,6 +2631,13 @@ int main()
     bool useSHA256;
     cin >> useSHA256;
 
+    int degree = 0;
+    if (tree == "BTREE" || tree == "btree")
+    {
+        cout << "Enter the minimum degree of BTree: ";
+        cin >> degree;
+    }
+
     Repository repo(path, tree, useSHA256);
     bool init = false;
 
@@ -1502,8 +2649,8 @@ int main()
 
         if (command == "commands")
         {
-            cout << "init\nbranch\ncheckout\ncommit\nbranches\ndelete-branch\nmerge-tree\nvisualize-tree\n\log\current-branch\nload\nsave\nexit\n";
-            cout << "\nupdate\nadd,delete\n";
+            cout << "init\nbranch\ncheckout\ncommit\nbranches\ndelete-branch\nmerge-tree\nvisualize-tree\nlog\ncurrent-branch\nload\nsave\nexit\n";
+            cout << "\nupdate\nadd\ndelete\n";
         }
         else if (command == "update")
         {
@@ -1533,7 +2680,7 @@ int main()
             cout << "Enter key : ";
             cin >> key;
 
-            //repo.del(key, row);
+            repo.del(key);
         }
         else if (command == "init")
         {
@@ -1560,7 +2707,7 @@ int main()
             String message;
             cout << "Enter commit message : ";
             cin >> message;
-           // repo.commit(message);
+            repo.commit(message);
         }
         else if (command == "branches")
         {
@@ -1612,6 +2759,7 @@ int main()
             cout << "INVALID command.\n";
 
     }
+
 
     //if (input.startsWith("UPDATE"))
     //{

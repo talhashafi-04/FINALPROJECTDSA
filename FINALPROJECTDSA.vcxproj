@@ -130,20 +130,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="AVL.h" />
-    <ClInclude Include="BTrees.h" />
-    <ClInclude Include="FIleHandler.h" />
-    <ClInclude Include="Filing.h" />
-    <ClInclude Include="Interface.h" />
-    <ClInclude Include="MerkelTree.h" />
-    <ClInclude Include="Repository.h" />
-    <ClInclude Include="RedBlackTree.h" />
-    <ClInclude Include="String.h" />
-    <ClInclude Include="Vector.h" />
-  </ItemGroup>
-  <ItemGroup>
     <ClCompile Include="MEGAFILE.cpp" />
-    <ClCompile Include="Source.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

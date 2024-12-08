@@ -40,7 +40,8 @@ public:
     }
 };
 
-class RedBlackTree {
+class RedBlackTree 
+{
 public:
     static RedBlackNode* loadFromFile(const String& fileName) {
         if (fileName.empty()) return nullptr;

@@ -1,4 +1,14 @@
+/*
+    NAME TALHA SHAFI
+    ROLL 23i0563
+    NAME HANZALA 
+    ROLL 23i0799
+    NAME HUZAIFA TAHIR
+    ROLL 23i0731
+*/
+
 #include <iostream>
+
 #include <fstream>
 #include <cstdlib>
 #include <ctime>
@@ -863,6 +873,41 @@ public:
         blocks.push_back(csv);
         getBlocks(right, blocks);
     }
+    void save(const String& fileName)
+    {
+        ofstream outFile(fileName.c_str());
+        if (!outFile.is_open())
+        {
+            cout << "Unable to open file: " << fileName << " for writing." << endl;
+            return;
+        }
+
+        savePreOrder(rootFile, outFile);
+        outFile.close();
+    }
+
+    void savePreOrder(const String& rootFile, ofstream& outFile)
+    {
+        if (rootFile.empty())
+        {
+            return;
+        }
+
+        AVLNode* node = loadFromFile(rootFile);
+        if (!node)
+        {
+            return;
+        }
+
+        outFile << node->csvRow << endl;
+
+        savePreOrder(node->left, outFile);
+
+        savePreOrder(node->right, outFile);
+
+        delete node;
+    }
+
 
 };
 
@@ -1680,7 +1725,70 @@ public:
         delete fullChild;
         delete newChild;
     }
+    void saveTree(const String& csvFileName) 
+    {
+        if (rootFile.empty()) {
+            std::cerr << "Error: B-Tree is empty, nothing to save.\n";
+            return;
+        }
 
+        std::ofstream treeFile(("BTree/" + rootFile + ".tree").c_str(), std::ios::binary);
+        std::ofstream csvFile(("BTree/" + csvFileName + ".csv").c_str());
+        if (!treeFile || !csvFile) {
+            std::cerr << "Error: Could not open files for writing.\n";
+            return;
+        }
+
+        saveTreeRecursive(rootFile, treeFile, csvFile);
+
+        treeFile.close();
+        csvFile.close();
+        std::cout << "B-Tree structure saved to " << rootFile << ".tree\n";
+        std::cout << "CSV data saved to " << csvFileName << ".csv\n";
+    }
+
+    void saveTreeRecursive(const String& nodeFile, std::ofstream& treeFile, std::ofstream& csvFile) {
+        BTreeNode* node = BTreeNode::loadFromFile(nodeFile);
+        if (!node) {
+            std::cerr << "Error: Could not load node " << nodeFile << " from file.\n";
+            return;
+        }
+
+        // Save the node's metadata (structure) to the tree file
+        treeFile.write((char*)&node->degree, sizeof(node->degree));
+        treeFile.write((char*)&node->numKeys, sizeof(node->numKeys));
+        treeFile.write((char*)&node->isLeaf, sizeof(node->isLeaf));
+
+        int fileNameLen = node->fileName.size();
+        treeFile.write((char*)&fileNameLen, sizeof(fileNameLen));
+        treeFile.write(node->fileName.c_str(), fileNameLen);
+
+        // Save the keys to the tree file
+        for (int i = 0; i < node->numKeys; ++i) {
+            int keyLen = node->keys[i].size();
+            treeFile.write((char*)&keyLen, sizeof(keyLen));
+            treeFile.write(node->keys[i].c_str(), keyLen);
+
+            // Save corresponding CSV row
+            csvFile << node->keys[i] << "," << node->csvRow << "\n";
+        }
+
+        // Save the child file names if the node is not a leaf
+        if (!node->isLeaf) {
+            for (int i = 0; i <= node->numKeys; ++i) {
+                int childLen = node->children[i].size();
+                treeFile.write((char*)&childLen, sizeof(childLen));
+                treeFile.write(node->children[i].c_str(), childLen);
+            }
+
+            // Recursively save all children
+            for (int i = 0; i <= node->numKeys; ++i) {
+                saveTreeRecursive(node->children[i], treeFile, csvFile);
+            }
+        }
+
+        delete node;
+    }
     void insertNonFull(const String& nodeFile, const String& data, const String& key) {
         BTreeNode* node = BTreeNode::loadFromFile(nodeFile);
         if (!node) {
@@ -2223,6 +2331,8 @@ public:
         }
     }
 
+    
+
     void checkout(const String& branchName)
     {
         bool branchExists = false;
@@ -2539,6 +2649,27 @@ public:
 
 
     }
+
+    void save(const String& FileName)
+    {
+        if (treeType == "avl" || treeType == "AVL")
+        {
+            String Path = repo + "/branches/" + currentBranch + "/tree/root.txt";
+            AVL avl(Path);
+            avl.save(FileName);
+
+        }
+        if (treeType == "btree" || treeType == "BTREE")
+        {
+            String Path = repo + "/branches/" + currentBranch + "/tree/root.txt";
+            BTree btree(degree, Path);
+            btree.saveTree(FileName);
+
+
+
+        }
+    }
+
     void update(String key, String newRow)
     {
         if (treeType == "avl" || treeType == "AVL")
@@ -2745,7 +2876,10 @@ int main()
         }
         else if (command == "save")
         {
-            //save();
+            cout << "Enter path to save the file : ";
+            String path;
+            cin >> path;
+            repo.save(path);
         }
         else if (command == "load")
         {
